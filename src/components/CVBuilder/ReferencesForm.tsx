@@ -59,7 +59,7 @@ export const ReferencesForm: React.FC<ReferencesFormProps> = ({ data, onChange }
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <p className="text-blue-800 text-sm">
           <strong>Note:</strong> Make sure to ask for permission before adding someone as a reference. 
-          Consider adding "References available upon request" to your CV instead of listing specific contacts.
+          Consider adding "References available upon request\" to your CV instead of listing specific contacts.
         </p>
       </div>
 
