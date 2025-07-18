@@ -4,6 +4,9 @@ import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { JobList } from './components/JobList';
 import { Applications } from './components/Applications';
+import { CVBuilder } from './components/CVBuilder/CVBuilder';
+import { InterviewScheduler } from './components/Interviews/InterviewScheduler';
+import { NotificationCenter } from './components/Notifications/NotificationCenter';
 import { Settings } from './components/Settings';
 import { AutoApply } from './components/AutoApply';
 import { AuthPage } from './components/Auth/AuthPage';
@@ -35,8 +38,14 @@ const AppContent: React.FC = () => {
         );
       case 'jobs':
         return <JobList />;
+      case 'cv-builder':
+        return <CVBuilder />;
       case 'applications':
         return <Applications />;
+      case 'interviews':
+        return <InterviewScheduler />;
+      case 'notifications':
+        return <NotificationCenter />;
       case 'settings':
         return <Settings user={user} onUpdateUser={updateUser} />;
       default:

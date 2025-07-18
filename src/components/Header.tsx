@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Search, Bell, Settings } from 'lucide-react';
+import { User, Search, Bell, Settings, FileText, Calendar, MessageCircle } from 'lucide-react';
 
 interface HeaderProps {
   user: any;
@@ -11,7 +11,10 @@ export const Header: React.FC<HeaderProps> = ({ user, currentView, onViewChange 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: User },
     { id: 'jobs', label: 'Jobs', icon: Search },
+    { id: 'cv-builder', label: 'CV Builder', icon: FileText },
     { id: 'applications', label: 'Applications', icon: Bell },
+    { id: 'interviews', label: 'Interviews', icon: Calendar },
+    { id: 'notifications', label: 'Notifications', icon: MessageCircle },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 

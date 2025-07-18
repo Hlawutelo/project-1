@@ -30,6 +30,9 @@ app.use('/uploads', express.static('uploads'));
 let users = [];
 let jobs = [];
 let applications = [];
+let cvs = [];
+let interviews = [];
+let notifications = [];
 
 // File upload configuration
 const storage = multer.diskStorage({
@@ -527,6 +530,153 @@ app.get('/api/dashboard/stats', authenticateToken, (req, res) => {
   res.json(stats);
 });
 
+// CV routes
+app.get('/api/cv', authenticateToken, (req, res) => {
+  const userCV = cvs.find(cv => cv.userId === req.user.userId);
+  res.json(userCV || null);
+});
+
+app.post('/api/cv', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const cvData = { ...req.body, userId, updatedAt: new Date() };
+  
+  const existingIndex = cvs.findIndex(cv => cv.userId === userId);
+  if (existingIndex !== -1) {
+    cvs[existingIndex] = cvData;
+  } else {
+    cvData.id = uuidv4();
+    cvData.createdAt = new Date();
+    cvs.push(cvData);
+  }
+  
+  res.json(cvData);
+});
+
+app.get('/api/cv/download', authenticateToken, (req, res) => {
+  // In a real app, you would generate a PDF here
+  // For now, we'll simulate a PDF download
+  const userCV = cvs.find(cv => cv.userId === req.user.userId);
+  
+  if (!userCV) {
+    return res.status(404).json({ error: 'CV not found' });
+  }
+  
+  // Simulate PDF generation
+  const pdfContent = `CV for ${userCV.personalInfo.fullName}\n\nThis is a simulated PDF download.`;
+  
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="cv.pdf"');
+  res.send(Buffer.from(pdfContent));
+});
+
+// Interview routes
+app.get('/api/interviews', authenticateToken, (req, res) => {
+  const userInterviews = interviews.filter(interview => interview.userId === req.user.userId);
+  res.json(userInterviews);
+});
+
+app.post('/api/interviews', authenticateToken, (req, res) => {
+  const interview = {
+    id: uuidv4(),
+    userId: req.user.userId,
+    ...req.body,
+    createdAt: new Date()
+  };
+  
+  interviews.push(interview);
+  
+  // Create notification
+  const notification = {
+    id: uuidv4(),
+    userId: req.user.userId,
+    type: 'interview_scheduled',
+    title: 'Interview Scheduled',
+    message: `Interview scheduled for ${interview.job.title} at ${interview.job.company}`,
+    read: false,
+    createdAt: new Date(),
+    actionUrl: '/interviews'
+  };
+  notifications.push(notification);
+  
+  res.json(interview);
+});
+
+app.put('/api/interviews/:id', authenticateToken, (req, res) => {
+  const interviewIndex = interviews.findIndex(
+    interview => interview.id === req.params.id && interview.userId === req.user.userId
+  );
+  
+  if (interviewIndex === -1) {
+    return res.status(404).json({ error: 'Interview not found' });
+  }
+  
+  interviews[interviewIndex] = {
+    ...interviews[interviewIndex],
+    ...req.body,
+    updatedAt: new Date()
+  };
+  
+  res.json(interviews[interviewIndex]);
+});
+
+// Notification routes
+app.get('/api/notifications', authenticateToken, (req, res) => {
+  const userNotifications = notifications
+    .filter(notification => notification.userId === req.user.userId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(userNotifications);
+});
+
+app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
+  const notificationIndex = notifications.findIndex(
+    notification => notification.id === req.params.id && notification.userId === req.user.userId
+  );
+  
+  if (notificationIndex !== -1) {
+    notifications[notificationIndex].read = true;
+  }
+  
+  res.json({ success: true });
+});
+
+app.put('/api/notifications/read-all', authenticateToken, (req, res) => {
+  notifications.forEach(notification => {
+    if (notification.userId === req.user.userId) {
+      notification.read = true;
+    }
+  });
+  
+  res.json({ success: true });
+});
+
+app.delete('/api/notifications/:id', authenticateToken, (req, res) => {
+  const notificationIndex = notifications.findIndex(
+    notification => notification.id === req.params.id && notification.userId === req.user.userId
+  );
+  
+  if (notificationIndex !== -1) {
+    notifications.splice(notificationIndex, 1);
+  }
+  
+  res.json({ success: true });
+});
+
+// Helper function to create notifications
+const createNotification = (userId, type, title, message, actionUrl = null) => {
+  const notification = {
+    id: uuidv4(),
+    userId,
+    type,
+    title,
+    message,
+    read: false,
+    createdAt: new Date(),
+    actionUrl
+  };
+  notifications.push(notification);
+  return notification;
+};
+
 // Scheduled job to update application statuses
 cron.schedule('0 */6 * * *', () => {
   console.log('Updating application statuses...');
@@ -535,10 +685,54 @@ cron.schedule('0 */6 * * *', () => {
     if (app.status === 'submitted' && Math.random() > 0.8) {
       app.status = 'viewed';
       app.lastUpdated = new Date();
+      
+      // Create notification
+      createNotification(
+        app.userId,
+        'application_update',
+        'Application Viewed',
+        `Your application for ${app.job.title} at ${app.job.company} has been viewed`,
+        '/applications'
+      );
     } else if (app.status === 'viewed' && Math.random() > 0.9) {
       app.status = Math.random() > 0.7 ? 'interview' : 'rejected';
       app.lastUpdated = new Date();
+      
+      // Create notification
+      const status = app.status === 'interview' ? 'Interview Request' : 'Application Update';
+      const message = app.status === 'interview' 
+        ? `Interview requested for ${app.job.title} at ${app.job.company}`
+        : `Your application for ${app.job.title} at ${app.job.company} was not selected`;
+      
+      createNotification(
+        app.userId,
+        'application_update',
+        status,
+        message,
+        '/applications'
+      );
     }
+  });
+  
+  // Create job match notifications for new jobs
+  users.forEach(user => {
+    const recentJobs = jobs.filter(job => {
+      const jobAge = Date.now() - new Date(job.posted).getTime();
+      return jobAge < 24 * 60 * 60 * 1000; // Jobs posted in last 24 hours
+    });
+    
+    recentJobs.forEach(job => {
+      const matchScore = calculateMatchScore(job, user);
+      if (matchScore >= 85) {
+        createNotification(
+          user.id,
+          'job_match',
+          'New High-Match Job',
+          `${job.title} at ${job.company} - ${matchScore}% match`,
+          '/jobs'
+        );
+      }
+    });
   });
 });
 
@@ -580,6 +774,25 @@ const startServer = async () => {
         source: 'Direct'
       }
     );
+    
+    // Add sample notifications for demo
+    if (users.length > 0) {
+      const sampleUser = users[0];
+      createNotification(
+        sampleUser.id,
+        'job_match',
+        'New Job Match Found',
+        'Senior React Developer at TechCorp Inc. - 92% match',
+        '/jobs'
+      );
+      createNotification(
+        sampleUser.id,
+        'system',
+        'Welcome to AI JobMatch',
+        'Complete your profile to get better job matches',
+        '/settings'
+      );
+    }
   }
   
   app.listen(PORT, () => {

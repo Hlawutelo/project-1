@@ -138,6 +138,82 @@ class ApiService {
     return this.request('/dashboard/stats');
   }
 
+  // CV methods
+  async getCV() {
+    return this.request('/cv');
+  }
+
+  async saveCV(cvData: any) {
+    return this.request('/cv', {
+      method: 'POST',
+      body: JSON.stringify(cvData),
+    });
+  }
+
+  async downloadCV() {
+    const response = await fetch(`${API_BASE_URL}/cv/download`, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+      },
+    });
+    
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cv.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      throw new Error('Failed to download CV');
+    }
+  }
+
+  // Interview methods
+  async getInterviews() {
+    return this.request('/interviews');
+  }
+
+  async scheduleInterview(interviewData: any) {
+    return this.request('/interviews', {
+      method: 'POST',
+      body: JSON.stringify(interviewData),
+    });
+  }
+
+  async updateInterview(id: string, updates: any) {
+    return this.request(`/interviews/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // Notification methods
+  async getNotifications() {
+    return this.request('/notifications');
+  }
+
+  async markNotificationAsRead(id: string) {
+    return this.request(`/notifications/${id}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request('/notifications/read-all', {
+      method: 'PUT',
+    });
+  }
+
+  async deleteNotification(id: string) {
+    return this.request(`/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   isAuthenticated() {
     return !!this.token;
   }
